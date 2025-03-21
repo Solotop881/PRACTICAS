@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <link rel="stylesheet" type="text/css" href="mapa.css"/>
+    <title>Mapa Administrativo de Bolivia</title>
+    <style>
+        #map { width: 100%; height: 100%; min-height: 600px; }
+
+        /* Estilo para centrar el título y cambiar el color a azul */
+        h1 {
+            text-align: center;
+            color: blue;
+        }
+
+        /* Contenedor de los botones */
+        .controls {
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .controls button {
+            margin: 5px;
+            padding: 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>T2  lograr crear su geovisor con HTML y JS - MOD15 LUIS ANTONIO ARANDA ZUAZO</h1>
+
+    <!-- Botones para controlar capas -->
+    <div class="controls">
+        <button id="toggleRios">Mostrar/Ocultar Ríos</button>
+        <button id="toggleMunicipios">Mostrar/Ocultar Municipios</button>
+        <button id="toggleBuffer">Mostrar/Ocultar Buffer del Río Desaguadero</button>
+    </div>
+
+    <select name="select-location" id="select-location">
+        <option value="-1">Seleccione un lugar</option>
+        <option value="-19.010959,-65.293029">Chuquisaca (Sucre)</option>
+        <option value="-17.813523,-63.169907">Santa Cruz</option>
+        <option value="-16.513299,-68.189334">La Paz</option>
+        <option value="-14.820498,-64.916225">Beni</option>
+        <option value="-11.038859,-68.782705">Pando (Cobija)</option>
+        <option value="-17.964077,-67.076215">Oruro</option>
+        <option value="-19.540559,-65.722299">Potosí</option>
+        <option value="-17.421312,-66.176981">Cochabamba</option>
+        <option value="-21.557535,-64.698249">Tarija</option>
+    </select>
+
+    <div id="map"></div>
+
+    <!-- Leaflet y Turf.js -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+    
+    <!-- Carga de archivos GeoJSON -->
+    <script type="text/javascript" src="bolivia-limites.js"></script>
+    <script type="text/javascript" src="Rios_vrhr_250000.js"></script>
+
+    <script>
+        // Inicializar el mapa en Bolivia
+        var map = L.map("map").setView([-16.2902, -63.5887], 5);
+
+        // Agregar capa base de OpenStreetMap
+        var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Variables para las capas
+        var riosLayer, municipiosLayer, bufferLayer;
+
+        // Estilo para los límites de Bolivia
+        var EstiloCapaBolivia = { "color": "#46FF33", "weight": 2, "opacity": 0.5 };
+        if (typeof geojsonFeature !== "undefined") {
+            municipiosLayer = L.geoJson(geojsonFeature, { style: EstiloCapaBolivia }).addTo(map);
+        } else {
+            console.error("No se encontró la variable geojsonFeature. Verifica bolivia-limites.js");
+        }
+
+        // Estilo para los ríos
+        var EstiloRios = { "color": "blue", "weight": 1.5, "opacity": 0.8 };
+        if (typeof Rios_vrhr_250000 !== "undefined" && Rios_vrhr_250000.features) {
+            riosLayer = L.geoJson(Rios_vrhr_250000, {
+                style: EstiloRios,
+                onEachFeature: function (feature, layer) {
+                    var nombreRio = feature.properties && feature.properties.Nombre ? feature.properties.Nombre : "Río sin nombre";
+                    layer.bindPopup("Río: " + nombreRio);
+                }
+            }).addTo(map);
+        } else {
+            console.error("No se pudo cargar el archivo Rios_vrhr_250000.js.");
+        }
+
+        // Crear buffer para el río Desaguadero
+        if (typeof Rios_vrhr_250000 !== "undefined" && Rios_vrhr_250000.features) {
+            var rioDesaguadero = Rios_vrhr_250000.features.find(f => f.properties && f.properties.Nombre && f.properties.Nombre.includes("Desaguadero"));
+            if (rioDesaguadero) {
+                var buffer = turf.buffer(rioDesaguadero, 2, { units: 'kilometers' });
+                bufferLayer = L.geoJson(buffer, { color: "red", weight: 1, fillOpacity: 0.3 }).addTo(map);
+            } else {
+                console.warn("No se encontró el río Desaguadero.");
+            }
+        }
+
+        // Función para alternar la visibilidad de una capa
+        function toggleLayer(layer) {
+            if (map.hasLayer(layer)) {
+                map.removeLayer(layer);
+            } else {
+                map.addLayer(layer);
+            }
+        }
+
+        // Event listeners para los botones
+        document.getElementById("toggleRios").addEventListener("click", function () {
+            toggleLayer(riosLayer);
+        });
+
+        document.getElementById("toggleMunicipios").addEventListener("click", function () {
+            toggleLayer(municipiosLayer);
+        });
+
+        document.getElementById("toggleBuffer").addEventListener("click", function () {
+            toggleLayer(bufferLayer);
+        });
+
+        // Selector de ubicación con FlyTo
+        document.getElementById("select-location").addEventListener("change", function () {
+            var selectedValue = this.value;
+            if (selectedValue !== "-1") {
+                var coords = selectedValue.split(",");
+                map.flyTo([parseFloat(coords[0]), parseFloat(coords[1])], 13);
+            }
+        });
+
+    </script>
+</body>
+</html>
+
